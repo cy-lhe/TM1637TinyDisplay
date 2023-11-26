@@ -34,6 +34,8 @@
   (*(const unsigned char *)(addr)) // workaround for non-AVR
 #endif
 
+#include "PCA9533.h"
+
 #define SEG_A   0b00000001
 #define SEG_B   0b00000010
 #define SEG_C   0b00000100
@@ -106,7 +108,7 @@
 
 #define MAXDIGITS           4     // Total number of digits   
 
-#define DEFAULT_BIT_DELAY     100
+#define DEFAULT_BIT_DELAY     0 // orig: 100 microseconds (reduced due to the I2C overhead that came by adding PCA9533 before the TM1637)
 #define DEFAULT_SCROLL_DELAY  100
 #define DEFAULT_FLIP          false
 
@@ -114,18 +116,18 @@
 #define TIME_MS(t)    t
 #define TIME_S(t)     t*1000
 
-class TM1637TinyDisplay {
+class TM1637TinyDisplayViaPCA9533 {
 
 public:
   //! Initialize a TM1637TinyDisplay object.
   //!
-  //! @param pinClk - The number of the digital pin connected to the clock pin of the module
-  //! @param pinDIO - The number of the digital pin connected to the DIO pin of the module
+  //! @param pinClk - The number of the digital pin connected to the clock pin of the module on pca9533
+  //! @param pinDIO - The number of the digital pin connected to the DIO pin of the module on pca9533
   //! @param bitDelay - The delay, in microseconds, between bit transition on the serial
   //!                   bus connected to the display
   //! @param flip - Flip display orientation (default=false)
-  TM1637TinyDisplay(uint8_t pinClk, uint8_t pinDIO, unsigned int bitDelay = DEFAULT_BIT_DELAY, 
-    unsigned int scrollDelay = DEFAULT_SCROLL_DELAY, bool flip=DEFAULT_FLIP);
+  TM1637TinyDisplayViaPCA9533(Pca9533::PCA9533* extPorts, Pca9533::pca9533_pin_t pinClk, Pca9533::pca9533_pin_t pinDIO, unsigned int bitDelay = DEFAULT_BIT_DELAY,
+    unsigned int scrollDelay = DEFAULT_SCROLL_DELAY, bool flip = DEFAULT_FLIP);
 
   //! Initialize the display, setting the clock and data pins.
   //!
@@ -177,7 +179,7 @@ public:
   //!
   //! @param buffercopy Memory location of an array of at least MAXDIGITS size
   //! 
-  void readBuffer(uint8_t *buffercopy);
+  void readBuffer(uint8_t* buffercopy);
 
   //! Display arbitrary data on the module
   //!
@@ -192,7 +194,7 @@ public:
   //! @param length The number of digits to be modified
   //! @param pos The position from which to start the modification (0 - leftmost, 3 - rightmost)
   void setSegments(const uint8_t segments[], uint8_t length = MAXDIGITS, uint8_t pos = 0);
-  
+
   //! Update a single digit segment values
   //!
   //! This function receives raw segment values as input and displays them. The segment data
@@ -363,7 +365,7 @@ public:
   //! @param level A value between 0 and 100 (representing percentage)
   //! @param horizontal Boolean (true/false) where true = horizontal, false = vertical
   void showLevel(unsigned int level = 100, bool horizontal = true);
-  
+
   //! Display a sequence of raw LED segment data to create an animation
   //!
   //! Play through an array of raw LED segment data to create a moving pattern.  
@@ -428,13 +430,13 @@ public:
   //! @param usePROGMEN Indicates if the passed animation data is coming from a PROGMEM defined variable
   //! @param frames Number of frames in the sequence to animate
   //! @param ms Time to delay between each frame
-  void startAnimation(const uint8_t (*data)[MAXDIGITS], unsigned int frames = 0, unsigned int ms = 10, bool usePROGMEM = false);
+  void startAnimation(const uint8_t(*data)[MAXDIGITS], unsigned int frames = 0, unsigned int ms = 10, bool usePROGMEM = false);
   void startAnimation_P(const uint8_t(*data)[MAXDIGITS], unsigned int frames = 0, unsigned int ms = 10);
 
   //! The function used to stop a non-blocking animation
   //!
   void stopAnimation();
- 
+
   //! The function used to begin a non-blocking scroll of a string
   //!
   //! @param usePROGMEN Indicates if the passed string data is coming from a PROGMEM defined variable
@@ -454,22 +456,24 @@ public:
   uint8_t encodeASCII(uint8_t chr);
 
 protected:
-   void bitDelay();
+  void bitDelay();
 
-   void start();
+  void start();
 
-   void stop();
+  void stop();
 
-   bool writeByte(uint8_t b);
+  bool writeByte(uint8_t b);
 
-   void showDots(uint8_t dots, uint8_t* digits);
-   
-   void showNumberBaseEx(int8_t base, uint16_t num, uint8_t dots = 0, bool leading_zero = false, uint8_t length = MAXDIGITS, uint8_t pos = 0);
+  void showDots(uint8_t dots, uint8_t* digits);
+
+  void showNumberBaseEx(int8_t base, uint16_t num, uint8_t dots = 0, bool leading_zero = false, uint8_t length = MAXDIGITS, uint8_t pos = 0);
 
 private:
-  uint8_t m_pinClk;
-  uint8_t m_pinDIO;
+  Pca9533::PCA9533* m_extPorts;
+  Pca9533::pca9533_pin_t m_pinClk;
+  Pca9533::pca9533_pin_t m_pinDIO;
   uint8_t m_brightness;
+  
   unsigned int m_bitDelay;
   unsigned int m_scrollDelay;
   bool m_flipDisplay;
@@ -480,8 +484,8 @@ private:
   unsigned int m_animation_frames;
   unsigned int m_animation_last_frame;
   unsigned int m_animation_frame_ms;
-  uint8_t (*m_animation_sequence)[MAXDIGITS];
-  uint8_t (*m_animation_string);
+  uint8_t(*m_animation_sequence)[MAXDIGITS];
+  uint8_t(*m_animation_string);
   uint8_t m_animation_type;
 };
 
